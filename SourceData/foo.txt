@@ -1,1 +1,12 @@
 
+format is:
+time stamp
+
+angular velocity (wx wy wz) need to be multiplied by 0.001 multiplied pi divide by 180 = *0.001*PI/180 in radians/sec
+ax,ay,az is accelerometer = 0.001*9.81 in m/s^2
+
+one optional value is orientation.  (might not be there.)  1, left, 2 up, 3 down 4 right 5 top 6 bottom
+
+measure are from a single pelvis (center of mass) sensor. 
+
+ o
