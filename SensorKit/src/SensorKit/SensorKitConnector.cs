@@ -21,6 +21,7 @@ namespace SensorKitSDK
         DateTime _connectedTime = DateTime.MinValue;
         string currentPacket = null;
         string currentData = "";
+        int currentLength = 0;
 
         public static double GRAVITY = 9.80665;
 
@@ -38,10 +39,12 @@ namespace SensorKitSDK
 
         const string PACKET_START = "RX-";
         const string PACKET_END = "TX-";
+        const string PACKET_LENGTH = "LX-";
         const string SYNC_TIME = "SX-";
-        const string SYNC_COMMAND = @"/";
-        const string PUSH_COMMAND = @"=";
+        const string SYNC_COMMAND = @"=";
+        const string PUSH_COMMAND = @"s";
         const string LOG_COMMAND = @"d";
+        const string SYNC_COMMAND_HISTORY = @"/";
 
 
         bool _isConnected = false;
@@ -190,23 +193,16 @@ namespace SensorKitSDK
 
         private void ParsePacket(string received)
         {
-            if (this.isLogging)
-            {
-                if (log_filename == null)
-                {
-                    var fileName = $"log_{Data.Id}_{SensorKit.MakeSafeFilename(Data.Name)}.txt";
-                    log_filename = PCLStorage.PortablePath.Combine(PCLStorage.FileSystem.Current.LocalStorage.Path, "sensors", $"{fileName}");
-////#if __ANDROID__
-//    var path = Android.OS.Environment.GetExternalStoragePublicDirectory(Android.OS.Environment.DirectoryDocuments);
-////#else
-//    var path = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-////#endif
-
-                    //log_filename = Path.Combine(path, fileName);
-                }
-                File.AppendAllText(log_filename, received);
-                return;
-            }
+            //if (this.isLogging)
+            //{
+            //    if (log_filename == null)
+            //    {
+            //        var fileName = $"log_{Data.Id}_{SensorKit.MakeSafeFilename(Data.Name)}.txt";
+            //        log_filename = PCLStorage.PortablePath.Combine(PCLStorage.FileSystem.Current.LocalStorage.Path, "sensors", $"{fileName}");
+            //    }
+            //    File.AppendAllText(log_filename, received);
+            //    return;
+            //}
             
 
             Debug.WriteLine($"CHUNK: {received}");
@@ -220,6 +216,7 @@ namespace SensorKitSDK
                         Debug.WriteLine($"PACKET START: {packetStart}");
                         currentPacket = packetStart;
                         currentData = "";
+                        currentLength = 0;
                     }
                     else
                     {
@@ -233,6 +230,16 @@ namespace SensorKitSDK
                 }
                 else
                 {
+                    if(currentLength == 0)
+                    {
+                        var len = ParsePacketLength(received);
+                        if(len.HasValue && len.Value > 0)
+                        {
+                            Debug.WriteLine($"PACKET LENGTH: {len}");
+                            currentLength = len.Value;
+                            return;
+                        }
+                    }
                     string packetEnd = ParsePacketEnd(received);
                     if (!String.IsNullOrEmpty(packetEnd))
                     {
@@ -245,6 +252,7 @@ namespace SensorKitSDK
 
                         currentPacket = null;
                         currentData = "";
+                        currentLength = 0;
                     }
                     else
                     {
@@ -295,6 +303,24 @@ namespace SensorKitSDK
             return null;
         }
 
+        private int? ParsePacketLength(string s)
+        {
+            if (!String.IsNullOrEmpty(s))
+            {
+                int start = s.LastIndexOf(PACKET_LENGTH); // any LX in the string?
+                if (start != -1)
+                {
+                    var len_str = s.Substring(start + PACKET_LENGTH.Length);
+                    int len;
+                    if(int.TryParse(len_str, out len))
+                    {
+                        return len;
+                    }
+                }
+            }
+            return null;
+        }
+
         private SensorItem PacketToSensorData(string json)
         {
             try
@@ -305,30 +331,35 @@ namespace SensorKitSDK
                 {
                     if (item?.airdata != null)
                     {
-                        var reading = new SensorItem
+                        if (item.airdata.g != 0) // filter
                         {
-                            offsetMs = item.airdata.t,
-                            itemType = SensorItemTypes.Airtime,
-                            duration = item.airdata.dt,
-                            altitude = item.airdata.alt,
-                            force = item.airdata.g
-                        };
-
-                        Data.Append(reading);
+                            var reading = new SensorItem
+                            {
+                                offsetMs = item.airdata.t,
+                                itemType = SensorItemTypes.Airtime,
+                                duration = item.airdata.dt,
+                                altitude = item.airdata.alt,
+                                force = item.airdata.g
+                            };
+                            Data.Append(reading);
+                        }
                     }
 
                     if (item?.turndata != null)
                     {
-                        var reading = new SensorItem
+                        if (item.turndata.g != 0)
                         {
-                            offsetMs = item.turndata.t,
-                            itemType = SensorItemTypes.Turns,
-                            duration = item.turndata.dt,
-                            radius = item.turndata.r,
-                            force = item.turndata.g
-                        };
-
-                        Data.Append(reading);
+                            var reading = new SensorItem
+                            {
+                                offsetMs = item.turndata.t,
+                                itemType = SensorItemTypes.Turns,
+                                duration = item.turndata.dt,
+                                radius = item.turndata.r,
+                                force = item.turndata.g,
+                                forceAvg = item.turndata.ga
+                            };
+                            Data.Append(reading);
+                        }
                     }
 
                     
@@ -353,8 +384,22 @@ namespace SensorKitSDK
 
                     if (item?.summary != null)
                     {
-                        Data.UpdateSummary(item.summary);
-                        Data.CurrentCount = 0;
+                        var reading = new SensorItem
+                        {
+                            offsetMs = item.summary.t,
+                            itemType = SensorItemTypes.Summary,
+                            steps = item.summary.steps,
+                            aircount = item.summary.air,
+                            airgmax = item.summary.airgmax,
+                            airaltmax = item.summary.airaltmax,
+                            turns = item.summary.turns,
+                            tgmax = item.summary.tgmax,
+                            tgavg = item.summary.tgavg,
+                            airgavg = item.summary.airgavg,
+                            airt = item.summary.airt,
+                            turnt = item.summary.turnt
+                        };
+                        Data.Append(reading);
                     }
                 }
 

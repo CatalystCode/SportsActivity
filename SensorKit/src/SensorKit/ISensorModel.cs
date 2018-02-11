@@ -14,6 +14,7 @@ namespace SensorKitSDK
         bool IsSubscribed { get; }
         Task SetLogging(bool isLogging);
         Task SetAutoUpdates(bool isAutoUpdates);
+        Task Forget();
 
     }
 }

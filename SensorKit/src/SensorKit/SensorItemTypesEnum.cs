@@ -14,6 +14,7 @@ namespace SensorKitSDK
         Javelin = 3,
         Steps = 4,
         Raw = 5, // raw accelerometer and gyro data
-        Turns = 6
+        Turns = 6,
+        Summary = 7
     }
 }

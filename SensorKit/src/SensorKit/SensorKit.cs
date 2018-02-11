@@ -28,29 +28,28 @@ namespace SensorKitSDK
                 if(instance == null)
                 {
                     instance = new SensorKit();
+                    
                 }
                 return instance;
             }
         }
 
-        private static AzureUploader uploaderInstance;
-        public static AzureUploader UploaderInstance
+        private static AzureConnector azureConnectorInstance;
+        public static AzureConnector AzureConnectorInstance
         {
             get
             {
-                if (uploaderInstance == null)
+                if (azureConnectorInstance == null)
                 {
-                    uploaderInstance = new AzureUploader();
+                    azureConnectorInstance = new AzureConnector();
                 }
-                return uploaderInstance;
+                return azureConnectorInstance;
             }
         }
 
         public const string DEVICE_PREFIX = "SensorKit";
        
         private CancellationTokenSource _cancellationTokenSource;
-
-        public bool IsCaptureOn { get; set; }
 
         public SensorsRegistry Registry { get; set; } = new SensorsRegistry();
 
@@ -84,6 +83,12 @@ namespace SensorKitSDK
             Adapter.DeviceDisconnected += OnDeviceDisconnected;
             Adapter.DeviceConnectionLost += OnDeviceConnectionLost;
 
+        }
+
+        public void Init()
+        {
+            if (InvokeHelper.mainSyncronisationContext == null)
+                InvokeHelper.mainSyncronisationContext = SynchronizationContext.Current;
         }
 
         public int Count
@@ -197,29 +202,39 @@ namespace SensorKitSDK
                 {
                     isScanning = true;
 
-                    // first check known devices
-                    foreach (var connectedDevice in Adapter.ConnectedDevices)
+                    var devices = Adapter.GetSystemConnectedOrPairedDevices();
+                    foreach (var connectedDevice in devices)
                     {
                         var name = connectedDevice.Name;
-                        //if (name != null && name.Contains(DEVICE_PREFIX) && !Data.Any(d => d.Name == name))
                         if (name != null && Registry.Items.Any(r => name.ToLower().Contains(r.Format.ToLower())) && !Data.Any(d => d.Name == name))
                         {
-                            //update rssi for already connected evices (so that 0 is not shown in the list)
-                            //try
-                            //{
-                            //    await connectedDevice.UpdateRssiAsync();
-                            //}
-                            //catch (Exception ex)
-                            //{
-                            //    Debug.WriteLine(ex.Message);
-                            //}
-
                             await AddSensor(connectedDevice);
                         }
                     }
 
-                   _cancellationTokenSource = new CancellationTokenSource();
-                   await Adapter.StartScanningForDevicesAsync(null, null, false, _cancellationTokenSource.Token);
+                    //// first check known devices
+                    //foreach (var connectedDevice in Adapter.ConnectedDevices)
+                    //{
+                    //    var name = connectedDevice.Name;
+                    //    //if (name != null && name.Contains(DEVICE_PREFIX) && !Data.Any(d => d.Name == name))
+                    //    if (name != null && Registry.Items.Any(r => name.ToLower().Contains(r.Format.ToLower())) && !Data.Any(d => d.Name == name))
+                    //    {
+                    //        //update rssi for already connected evices (so that 0 is not shown in the list)
+                    //        //try
+                    //        //{
+                    //        //    await connectedDevice.UpdateRssiAsync();
+                    //        //}
+                    //        //catch (Exception ex)
+                    //        //{
+                    //        //    Debug.WriteLine(ex.Message);
+                    //        //}
+
+                    //        await AddSensor(connectedDevice);
+                    //    }
+                    //}
+
+                    //_cancellationTokenSource = new CancellationTokenSource();
+                    //await Adapter.StartScanningForDevicesAsync(null, null, false, _cancellationTokenSource.Token);
                 }
                 catch (Exception x)
                 {
@@ -281,19 +296,6 @@ namespace SensorKitSDK
                 Debug.WriteLine(x);
             }
             isAddingSensor = false;
-        }
-
-        public static async Task<bool> UploadAsync(string name, string path)
-        {
-            try
-            {
-                return await UploaderInstance.UploadFileAsync(name, path);
-            }
-            catch(Exception x)
-            {
-                Debug.WriteLine(x);
-            }
-            return false;
         }
 
         public static string MakeSafeFilename(string filename)

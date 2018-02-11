@@ -16,15 +16,13 @@ namespace SensorKitSDK
 {
     public delegate void SensorModelStopHandler();
     public delegate void ValueChangedHandler(SensorItem newValue);
-    public delegate void SegmentsUpdatedHandler();
-
+    
     [DataContract]
     public class SensorModel :  ViewModel, ISensorModel
     {
         public event SensorModelStopHandler Stopped;
         public event ValueChangedHandler ValueChanged;
-        //public event SegmentsUpdatedHandler SegmentsChanged;
-
+    
         [DataMember]
         public Guid Id { get; set; }
 
@@ -82,6 +80,21 @@ namespace SensorKitSDK
 
         [IgnoreDataMember]
         public List<SensorItem> History { get; set; } = new List<SensorItem>();
+
+        [IgnoreDataMember]
+        public DateTime? LastSync
+        {
+            get
+            {
+                if (History != null)
+                {
+                    var last = History.LastOrDefault(s=>s.itemType == SensorItemTypes.Summary);
+                    if (last != null)
+                        return last.timestamp;
+                }
+                return null;
+            }
+        }
 
         [IgnoreDataMember]
         public IEnumerable<SensorItem> AirHistory
@@ -163,27 +176,7 @@ namespace SensorKitSDK
 
         }
 
-        // current record count
-        [IgnoreDataMember]
-        int _currentCount = 0;
-        public int CurrentCount { get { return _currentCount; } set { SetValue(ref _currentCount, value, "CurrentCount", "PercentLoaded"); } }
-
-        [IgnoreDataMember]
-        public double PercentLoaded
-        {
-            get
-            {
-                if(Summary != null && CurrentCount < Summary.size && Summary.size != 0)
-                {
-                    return ((double)CurrentCount / (double)Summary.size);
-                }
-                else
-                {
-                    return 0.0;
-                }
-            }
-        }
-
+       
         public SensorModel()
         {
         }
@@ -221,9 +214,6 @@ namespace SensorKitSDK
                     }
                 }
 
-                //if(SegmentsChanged != null)
-                //    SegmentsChanged();
-
             }
             catch(Exception x)
             {
@@ -231,7 +221,6 @@ namespace SensorKitSDK
             }
         }
 
-        
 
         public void Append(SensorItem e)
         {
@@ -243,25 +232,11 @@ namespace SensorKitSDK
                     History.Add(e);
                     ValueChanged?.Invoke(e);
                     NotifyPropertyChanged("History");
-                    if (CurrentCount > 0)
-                    {
-                        CurrentCount--;
-                        NotifyPropertyChanged("CurrentCount","PercentLoaded");
-                        Debug.WriteLine($"Loaded % {PercentLoaded}");
-                    }
                 });
             }
             catch(Exception x) {
                 Debug.WriteLine(x);
             }
-        }
-
-        public void UpdateSummary(SensorSummaryData summary)
-        {
-            InvokeHelper.Invoke(() =>
-            {
-                Summary = summary;
-            });
         }
 
         public void Save()
@@ -272,13 +247,13 @@ namespace SensorKitSDK
             });
         }
 
-        public void Forget()
+        public async Task Forget()
         {
             Stop(); // stop data
                            // unsubscribe from the bluetooth
             if (Connector != null)
             {
-                Connector.Unsubscribe();
+                await Connector.Unsubscribe();
                 Connector = null;
             }
             // untag the sensor
