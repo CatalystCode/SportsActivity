@@ -64,8 +64,9 @@ ReadNewFormatFile <- function(df, debug_print = 0) {
               }
             }
           }
-          if (debug_print==2) {print(paste("SAVED: i=",i,"start=",start," full_line=",full_line,
-                                           " rows=",nrow(parsed_set)," parsed rows=",nrow(dt_result)))}
+          if (debug_print==2 & (exists('dt_result') && is.data.frame(get('dt_result')))) {
+            print(paste("SAVED: i=",i,"start=",start," full_line=",full_line,
+                        " rows=",nrow(parsed_set)," parsed rows=",nrow(dt_result)))}
         }
         
         #reset values
@@ -92,18 +93,16 @@ ReadNewFormatFile <- function(df, debug_print = 0) {
 }
 
 PlotSingleChart <- function(gf,chart_title, mainColor, fileName, sidetext,newPlot=FALSE){
-  
+
   if (newPlot) {
-    plot(1:length(gf),gf,type="l",ylab="",xlab="",col=mainColor, lty = ) #,axes=F,useRaster=F) # bty='n') 
+    plot(1:length(gf),gf,type="l",ylab="",xlab="",col=mainColor, lwd = 2 ) 
     abline(h = 0, v = 500 * c(1:9), lty = 2, lwd = .2, col = "gray70")
   }else{
     lines(1:length(gf),gf,type="l",col=mainColor,lwd=2)
   }
-  
-  #plot(r,axes=F,useRaster=F)
   if (chart_title !="") {title(paste(chart_title,":",fileName), cex.main = 1,   col.main= "blue")}
-  #abline(h=mean(gf),col="cyan",lty = 6, lwd = 1)
   mtext(sidetext,side=4,col="blue",cex=1)
+  
 }
 
 PlotInitialCharts <- function(df, fileName){
@@ -112,7 +111,6 @@ PlotInitialCharts <- function(df, fileName){
   # 4. Plot initial observations for Angular Velocity  & Accelleration 
   # 
   ###############
-  
   par(mfcol = c(3,2),oma = c(2,2,0,0) + 0.1,mar = c(1, 1, 1, 1) + 0.5)
   
   PlotSingleChart(df$wx,"Angular Velocity ","red", fileName,"Wx",TRUE)
@@ -125,15 +123,14 @@ PlotInitialCharts <- function(df, fileName){
 }
 
 #### NEW FORMAT ####
-kitSensorDir <- "C:/SensorKit/2018_01_14/"
-kitSensorFile <- "Log2018-01-14_13_40_31_CM_16Carve.txt"
+kitSensorDir <- "C:/test/SensorKit/Data/"
+kitSensorFile <- "2018-01-14_13_40_31_CM_16Carve.txt"
 sourceFile <- paste(kitSensorDir, kitSensorFile, sep="")
 
-dat <- read.table(sourceFile, header = FALSE, skip=43, sep="\t",stringsAsFactors=FALSE) #
+dat <- read.table(sourceFile, header = FALSE, skip=35,sep="\t",stringsAsFactors=FALSE) #43
 dat2 <- dat[dat$V1=="A", ]                 #Get only A rows 
-dat2$V4 <- gsub(" received", "", dat2$V3)  #remove word "received"
-
-df = ReadNewFormatFile(dat2, debug_print = 1)
+dat2$V4 <- gsub(" received", "", dat2$V3)  #remove Received
+df <- ReadNewFormatFile(dat2, debug_print = 1)
 
 # 3.values conversion 
 #   wx, wy, wz *  0.001 * PI / 180.0 = radians/second (ang. Velocity)
@@ -145,7 +142,18 @@ df$ax <- df$ax * 0.001 * 9.81
 df$ay <- df$ay * 0.001 * 9.81
 df$az <- df$az * 0.001 * 9.81
 
+#opar <- par()      # make a copy of current settings
+
 PlotInitialCharts (df, kitSensorFile)
 
+# Calculate magnitude for W & A
+df$magnitudeW <- sqrt(df$wx^2 + df$wy^2 + df$wz^2)
+df$magnitudeA <- sqrt(df$ax^2 + df$ay^2 + df$az^2)
 
+par(mfcol = c(2,1),oma = c(2,2,0,0) + 0.1,mar = c(1,1,1,1) + 0.5)
+PlotSingleChart(df$magnitudeA,"Magnitude Accelleration ","blueviolet", kitSensorFile,"MagnitudeA",TRUE) 
+PlotSingleChart(df$magnitudeW,"Magnitude Angular Velocity ","cyan4", kitSensorFile,"MagnitudeW",TRUE)
 
+#par(opar)          # restore original settings
+
+# " DONE for now"
