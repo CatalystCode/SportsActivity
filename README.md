@@ -15,3 +15,5 @@ source Sensor Kit and others. The repository contains:
 -   Python scripts of calculating [G-force and load](https://github.com/CatalystCode/SportsActivity/tree/master/Gforce).
 
 -   Sample [data files](https://github.com/CatalystCode/SportsActivity/tree/master/SourceData).
+
+![Chart for turn detection](/docs/images/chart.png)
