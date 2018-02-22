@@ -5,7 +5,7 @@ This repository is intended for readers of our article on MSDN Magazine, sports
 and data scientists, working with sensor data from sensors such as the open
 source Sensor Kit and others. The repository contains:
 
--   SensorKit SDK, a library which contains many useful functions from Bluetooth
+-   [SensorKit SDK](https://github.com/CatalystCode/SportsActivity/tree/master/SensorKit/src), a library which contains many useful functions from Bluetooth
     connectivity with the sensors, to simple data models for turn and jump
     detection, as well as connectivity with Microsoft Cosmos DB and Azure cloud
     containers.
